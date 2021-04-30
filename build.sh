@@ -26,7 +26,7 @@ elif [ "$1" == "android-10.0" ];then
     phh="android-10.0"
 elif [ "$1" == "android-11.0" ];then
     manifest_url="https://android.googlesource.com/platform/manifest"
-    aosp="android-11.0.0_r34"
+    aosp="android-11.0.0_r35"
     phh="android-11.0"
 else
 	# guess android version from version number
@@ -52,17 +52,31 @@ if [ "$release" == true ];then
     [ ! -f "$originFolder/release/config.ini" ] && exit 1
 fi
 
+
+gitReset() {
+	if [ "$#" -ne 3 ]; then
+		echo "call this function with 3 arguments: directory you want resetted, git branch to checkout and repo!"
+		exit 1
+	fi
+	if [ -z "$1" -o -z "$2" -o -z "$3" ]; then
+		echo "arguments cannot be empty"
+		exit 1
+	fi
+	if [ -d "$1" ]; then
+	    ( cd "$1"; git fetch; git reset --hard; git checkout "$2" )
+	else
+		git clone "$3" "$1" -b "$2"
+	fi
+}
+
+
 if [ -n "$rebuild_release" ];then
 	repo init -u "$tmp_manifest_source" -m manifest.xml
 else
 	repo init -u "$manifest_url" -b $aosp
-	if [ -d .repo/local_manifests ] ;then
-		( cd .repo/local_manifests; git fetch; git reset --hard; git checkout origin/$phh)
-	else
-		git clone https://github.com/phhusson/treble_manifest .repo/local_manifests -b $phh
-	fi
+	gitReset .repo/local_manifests $phh https://github.com/phhusson/treble_manifest
 fi
-repo sync -c -j 1 --force-sync
+repo sync -c -j 24 --force-sync
 
 repo forall -r '.*opengapps.*' -c 'git lfs fetch && git lfs checkout'
 (cd device/phh/treble; git clean -fdx; bash generate.sh)
@@ -74,7 +88,7 @@ rm -f vendor/gapps/interfaces/wifi_ext/Android.bp
 buildVariant() {
 	lunch $1
 	make BUILD_NUMBER=$rom_fp installclean
-	make BUILD_NUMBER=$rom_fp -j8 systemimage
+	make BUILD_NUMBER=$rom_fp -j16 systemimage
 	make BUILD_NUMBER=$rom_fp vndk-test-sepolicy
 	xz -c $OUT/system.img -T0 > release/$rom_fp/system-${2}.img.xz
 }
@@ -85,10 +99,9 @@ cp patches.zip release/$rom_fp/patches.zip
 
 if [ "$build_target" == "android-11.0" ];then
     (
-        git clone https://github.com/phhusson/sas-creator
+		gitReset sas-creator master https://github.com/phhusson/sas-creator
         cd sas-creator
-
-        git clone https://github.com/phhusson/vendor_vndk -b android-10.0
+		gitReset vendor_vndk android-10.0 https://github.com/phhusson/vendor_vndk
     )
 
     # ARM64 vanilla {ab, a-only, ab vndk lite}
@@ -97,30 +110,16 @@ if [ "$build_target" == "android-11.0" ];then
     ( cd sas-creator; bash lite-adapter.sh 64; xz -c s.img -T0 > ../release/$rom_fp/system-roar-arm64-ab-vndklite-vanilla.img.xz )
 
     # ARM64 floss {ab, a-only, ab vndk lite}
-	buildVariant treble_arm64_bfS-userdebug roar-arm64-ab-floss
-    ( cd sas-creator; bash run.sh 64 ; xz -c s.img -T0 > ../release/$rom_fp/system-roar-arm64-aonly-floss.img.xz)
-    ( cd sas-creator; bash lite-adapter.sh 64; xz -c s.img -T0 > ../release/$rom_fp/system-roar-arm64-ab-vndklite-floss.img.xz )
+#	buildVariant treble_arm64_bfS-userdebug roar-arm64-ab-floss
+#    ( cd sas-creator; bash run.sh 64 ; xz -c s.img -T0 > ../release/$rom_fp/system-roar-arm64-aonly-floss.img.xz)
+#    ( cd sas-creator; bash lite-adapter.sh 64; xz -c s.img -T0 > ../release/$rom_fp/system-roar-arm64-ab-vndklite-floss.img.xz )
 
-    # ARM32 vanilla {ab, a-only}
-	buildVariant treble_arm_bvS-userdebug roar-arm-ab-vanilla
-    ( cd sas-creator; bash run.sh 32; xz -c s.img -T0 > ../release/$rom_fp/system-roar-arm-aonly-vanilla.img.xz )
-
-    # ARM32_binder64 vanilla {ab, ab vndk lite}
-	buildVariant treble_a64_bvS-userdebug roar-arm32_binder64-ab-vanilla
-    ( cd sas-creator; bash lite-adapter.sh 32; xz -c s.img -T0 > ../release/$rom_fp/system-roar-arm32_binder64-ab-vndklite-vanilla.img.xz)
 
     # ARM64 Gapps {ab, a-only, ab vndk lite}
 	buildVariant treble_arm64_bgS-userdebug roar-arm64-ab-gapps
     ( cd sas-creator; bash run.sh 64 ; xz -c s.img -T0 > ../release/$rom_fp/system-roar-arm64-aonly-gapps.img.xz)
     ( cd sas-creator; bash lite-adapter.sh 64; xz -c s.img -T0 > ../release/$rom_fp/system-roar-arm64-ab-vndklite-gapps.img.xz )
 
-    # ARM32_binder64 go gapps {ab, ab vndk lite}
-	buildVariant treble_a64_boS-userdebug roar-arm32_binder64-ab-gogapps
-    ( cd sas-creator; bash lite-adapter.sh 32; xz -c s.img -T0 > ../release/$rom_fp/system-roar-arm32_binder64-ab-vndklite-gogapps.img.xz )
-
-    # ARM32_binder64 gapps {ab, ab vndk lite}
-	buildVariant treble_a64_bgS-userdebug roar-arm32_binder64-ab-gapps
-    ( cd sas-creator; bash lite-adapter.sh 32; xz -c s.img -T0 > ../release/$rom_fp/system-roar-arm32_binder64-ab-vndklite-gapps.img.xz )
 elif [ "$build_target" == "android-10.0" ];then
 	buildVariant treble_arm64_afS-userdebug quack-arm64-aonly-floss
 	buildVariant treble_arm64_avS-userdebug quack-arm64-aonly-vanilla
