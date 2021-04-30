@@ -22,6 +22,8 @@ RUN dpkg --add-architecture i386 && apt update && apt install -y apt dpkg && apt
 	python \
 	python3 \
 	git \
+    git-lfs \
+    htop \
 	m4 \
 	unzip \
 	bison \

@@ -76,11 +76,11 @@ else
 	repo init -u "$manifest_url" -b $aosp
 	gitReset .repo/local_manifests $phh https://github.com/phhusson/treble_manifest
 fi
-repo sync -c -j 24 --force-sync
+repo sync -c -j $(nproc) --force-sync
 
 repo forall -r '.*opengapps.*' -c 'git lfs fetch && git lfs checkout'
 (cd device/phh/treble; git clean -fdx; bash generate.sh)
-(cd vendor/foss; git clean -fdx; bash update.sh)
+#(cd vendor/foss; git clean -fdx; bash update.sh)
 rm -f vendor/gapps/interfaces/wifi_ext/Android.bp
 
 . build/envsetup.sh
@@ -88,7 +88,7 @@ rm -f vendor/gapps/interfaces/wifi_ext/Android.bp
 buildVariant() {
 	lunch $1
 	make BUILD_NUMBER=$rom_fp installclean
-	make BUILD_NUMBER=$rom_fp -j16 systemimage
+	make BUILD_NUMBER=$rom_fp -j$(nproc) systemimage
 	make BUILD_NUMBER=$rom_fp vndk-test-sepolicy
 	xz -c $OUT/system.img -T0 > release/$rom_fp/system-${2}.img.xz
 }
