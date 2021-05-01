@@ -87,9 +87,9 @@ rm -f vendor/gapps/interfaces/wifi_ext/Android.bp
 
 buildVariant() {
 	lunch $1
-	make BUILD_NUMBER=$rom_fp installclean
-	make BUILD_NUMBER=$rom_fp -j$(nproc) systemimage
-	make BUILD_NUMBER=$rom_fp vndk-test-sepolicy
+	m BUILD_NUMBER=$rom_fp installclean
+	m BUILD_NUMBER=$rom_fp -j$(nproc) systemimage
+	m BUILD_NUMBER=$rom_fp vndk-test-sepolicy
 	xz -c $OUT/system.img -T0 > release/$rom_fp/system-${2}.img.xz
 }
 

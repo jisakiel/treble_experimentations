@@ -16,6 +16,8 @@ RUN dpkg --add-architecture i386 && apt update && apt install -y apt dpkg && apt
     pngcrush schedtool xsltproc zip zlib1g-dev graphviz \
     flex gnupg \
         imagemagick \
+	libncurses5 \
+	libtinfo5 \
 	xorriso \
 	openjdk-8-jdk \
 	openjdk-11-jdk \
